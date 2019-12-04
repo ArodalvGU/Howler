@@ -17,6 +17,8 @@ require(dplyr)
 require(lubridate)
 require(haven)
 require(reprex)
+require(caret)
+require(recipes)
 ```
 
 ## Getting Databases
@@ -24,19 +26,23 @@ require(reprex)
 ```{r}
 #Note that I'm taking away the spaces needed according to the specific values.
 
-enigh2018 <- read_csv("C:/Users/DELL/Desktop/Georgetown/Thesis/Datasets/conjunto_de_datos_concentradohogar_enigh_2018_ns.csv")
+
+enigh2018 <- read_csv("Data/conjunto_de_datos_concentradohogar_enigh_2018_ns.csv")
 #Household level survey for data on 2018 (after the price liberalization)
 
-Inflation <- read_csv("Datasets/Inflation.csv",skip = 11)
+
+Inflation <- read_delim("Data/Inflation.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE, 
+    skip = 11)
 #Inflation month values for 2016-2019
 
-PRECIO2018 <- read_delim("Datasets/PreciosPromedioMensuales.csv",";", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE, skip = 2)
+PRECIO2018 <- read_delim("Data/PreciosPromedioMensuales.csv",";", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE, skip = 2)
 #Monthly Gas prices for every state. 
 
-Ingreso_2018 <- read_csv("Datasets/Ingreso_2018.csv")
+Ingreso_2018 <- read_csv("Data/Ingreso_2018.csv")
 #Income Datasubset that has the month every household was surveyed on 2016
 
-geo2018<- read_csv("Datasets/ubic_geo_2018.csv")
+geo2018<- read_csv("Data/ubic_geo_2018.csv")
 #State and City Data that uses the same codes as the data from 2018
 
 ```
@@ -45,19 +51,20 @@ geo2018<- read_csv("Datasets/ubic_geo_2018.csv")
 
 
 ```{r}
-#######################  ENIGH 2018 - Data for 2018 ############################
+#######################  ENIGH 2018  ############################
+## Initial Merging (Pre-splitting)
 
-#Adding Column for signaling 2018 (for dummy)
-enigh2018<-mutate(enigh2018,"year_"=2018)
+#Adding Column for signaling 2018 (for merging)
+enigh2018_clean<-mutate(enigh2018,"year_"=2018)
 
 #Merging State Name
-enigh2018<-left_join(enigh2018,geo2018,by=c('ubica_geo' = 'ubic_geo'))
+enigh2018_clean<-left_join(enigh2018_clean,geo2018,by=c('ubica_geo' = 'ubic_geo'))
 
 #Selecting Variables for the model. (THIS MIGHT CHANGE ACCORDING TO FURTHER ANALYSIS)
-enigh2018<-select(enigh2018,folioviv,foliohog,est_socio,factor,ing_cor,gasto_mon,energia,transporte,publico,foraneo,combus,erogac_tot,year_,entidad,desc_ent,des_mun)
+enigh2018_clean<-select(enigh2018_clean,folioviv,foliohog,est_socio,ing_cor,transporte,combus,year_,entidad,desc_ent,alimentos,vivienda,educa_jefe,salud,educa_espa)
 
 #Droping secondary data for households (just main HH)
-enigh2018<- filter(enigh2018,foliohog==1)
+enigh2018_clean<- filter(enigh2018_clean,foliohog==1)
 
 #Separating first month from Ingreso
 Ingreso_2018<-select(Ingreso_2018,folioviv,foliohog,mes_1) 
@@ -67,17 +74,110 @@ Ingreso_2018 <- Ingreso_2018[!duplicated(Ingreso_2018$folioviv),]#Keeps Month or
 Ingreso_2018$mes_1 <- Ingreso_2018$mes_1+1 #Corrects for "last month data"
 
 #Merging months
-enigh2018<-left_join(enigh2018,Ingreso_2018,by="folioviv") #merging to get the month
-enigh2018<-select(enigh2018,-foliohog.x,-foliohog.y) #Re-clean
-enigh2018[is.na(enigh2018)] <- 8  # adding August as the month for NA's
+enigh2018_clean<-left_join(enigh2018_clean,Ingreso_2018,by="folioviv") #merging to get the month
+enigh2018_clean<-select(enigh2018_clean,-foliohog.x,-foliohog.y) #Re-clean
+enigh2018_clean[is.na(enigh2018_clean)] <- 8  # adding August as the month for NA's
 
 #Fuel price to all months.
 PRECIO2018<-select(PRECIO2018,X1,X2,X3,X4)
 colnames(PRECIO2018) <- c("desc_ent", "Precio", "year_","mes_1")
-enigh2018<-left_join(enigh2018,PRECIO2018,by=c('desc_ent'='desc_ent','year_'='year_','mes_1'='mes_1')) #merge prices.
+enigh2018_clean<-left_join(enigh2018_clean,PRECIO2018,by=c('desc_ent'='desc_ent','year_'='year_','mes_1'='mes_1')) #merge prices.
 
 #merging inflation
-enigh2018<-left_join(enigh2018,Inflation,by=c('mes_1' = 'mes_1','year_' = 'year_')) #merge prices.
-summary(enigh2018)
+Inflation$Fecha <- as.Date(Inflation$Fecha,"%d/%m/%Y") #Reading Date with lubridate
+Inflation<-mutate(Inflation,mes_1=month(Inflation$Fecha)) #Create variable of month
+Inflation<-mutate(Inflation,year_=year(Inflation$Fecha)) #Create variable of month
+Inflation<-select(Inflation,SP30577,mes_1,year_)#select just monthly variation
+enigh2018_clean<-left_join(enigh2018_clean,Inflation,by=c('mes_1' = 'mes_1','year_' = 'year_')) #merge prices.
+
+```
+Splitting the data.
+```{r}
+set.seed(123)
+index = createDataPartition(enigh2018_clean$transporte,p=.8,list=F) 
+train_data = enigh2018_clean[index,] # Use 80% of the data as training data 
+test_data = enigh2018_clean[-index,] # holdout 20% as test data 
+dim(train_data)
+dim(test_data)
+```
+```{r}
+sum(is.na(train_data))
+summary(train_data)
+```
+```{r}
+train_data %>% 
+  select_if(is.numeric) %>% 
+  gather(var,val) %>% 
+  ggplot(aes(val,group=var)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(~var,scales="free",ncol=4)
 ```
 
+```{r}
+# First, turn the season variable into a categorical variable
+gen_cats = . %>% 
+  mutate(soceco_status = as.factor(est_socio)) %>% 
+  mutate(head_education = as.factor(educa_jefe)) %>% 
+  select(-year_,-entidad,-mes_1,-folioviv,-desc_ent,-est_socio,-educa_jefe)
+
+# Generate our recipe to preprocess the data 
+rcp <- 
+  recipe(transporte~.,train_data %>% gen_cats) %>% 
+  step_dummy(all_nominal(),-all_outcomes()) %>% 
+  step_range(all_numeric()) %>%  # Normalize scale
+  prep()
+
+
+# Apply the recipe to the training and test data
+train_data2 <- bake(rcp,train_data %>% gen_cats)
+test_data2 <- bake(rcp,test_data%>% gen_cats) # Need to transform the seasons data here as well. 
+
+sum(is.na(train_data2))
+```
+
+
+
+```{r}
+set.seed(1004) # set a seed for replication purposes 
+
+folds <- createFolds(train_data2$transporte, k = 6) # Partition the data into 10 equal folds
+
+sapply(folds,length)
+```
+
+```{r}
+control_conditions <- 
+  trainControl(method='cv', # K-fold cross validation
+               index = folds # The indices for our folds (so they are always the same)
+  )
+```
+
+```{r}
+mod_lm <-
+  train(transporte ~ .,          # Equation (outcome and everything else)
+        data=train_data2, # Training data 
+        method = "lm",    # linear model
+        metric = "RMSE",   # mean squared error
+        trControl = control_conditions # Cross validation conditions
+  )
+```
+
+```{r}
+mod_knn <-
+  train(transporte ~ .,           # Equation (outcome and everything else)
+        data=train_data2,  # Training data 
+        method = "knn",    # K-Nearest Neighbors Algorithm
+        metric = "RMSE",   # mean squared error
+        trControl = control_conditions # Cross validation conditions
+  )
+```
+
+```{r}
+mod_rf <-
+  train(transporte ~ ., # Equation (outcome and everything else)
+        data=train_data2, # Training data 
+        method = "ranger", # random forest (ranger is much faster than rf)
+        metric = "RMSE",     # mean squared error
+        trControl = control_conditions
+  )
+``
