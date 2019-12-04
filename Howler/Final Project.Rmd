@@ -160,6 +160,7 @@ mod_lm <-
         metric = "RMSE",   # mean squared error
         trControl = control_conditions # Cross validation conditions
   )
+mod_lm
 ```
 
 ```{r}
@@ -170,6 +171,7 @@ mod_knn <-
         metric = "RMSE",   # mean squared error
         trControl = control_conditions # Cross validation conditions
   )
+mod_knn
 ```
 
 ```{r}
@@ -180,4 +182,34 @@ mod_rf <-
         metric = "RMSE",     # mean squared error
         trControl = control_conditions
   )
-``
+mod_rf
+```
+```{r}
+plot(mod_rf)
+```
+
+```{r}
+mod_list <-
+  list(
+    lm = mod_lm,
+    knn = mod_knn,
+    rf = mod_rf 
+  )
+
+# Resamples allows us to compare model output
+resamples(mod_list)
+```
+
+```{r}
+dotplot(resamples(mod_list),metric = "RMSE")
+```
+
+```{r}
+dotplot(resamples(mod_list),metric = "Rsquared")
+```
+
+```{r}
+pred <- predict(mod_knn,newdata = test_data2)
+mse = sum(test_data2$transporte-pred^2)/nrow(test_data2)
+mse 
+```
