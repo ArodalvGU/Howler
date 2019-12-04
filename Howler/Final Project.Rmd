@@ -8,23 +8,76 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+## Package Requirements
+```{r}
+require (readr)
+require(readxl)
+require(tidyverse)
+require(dplyr)
+require(lubridate)
+require(haven)
+require(reprex)
 ```
 
-## Including Plots
+## Getting Databases
 
-You can also embed plots, for example:
+```{r}
+#Note that I'm taking away the spaces needed according to the specific values.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+enigh2018 <- read_csv("C:/Users/DELL/Desktop/Georgetown/Thesis/Datasets/conjunto_de_datos_concentradohogar_enigh_2018_ns.csv")
+#Household level survey for data on 2018 (after the price liberalization)
+
+Inflation <- read_csv("Datasets/Inflation.csv",skip = 11)
+#Inflation month values for 2016-2019
+
+PRECIO2018 <- read_delim("Datasets/PreciosPromedioMensuales.csv",";", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE, skip = 2)
+#Monthly Gas prices for every state. 
+
+Ingreso_2018 <- read_csv("Datasets/Ingreso_2018.csv")
+#Income Datasubset that has the month every household was surveyed on 2016
+
+geo2018<- read_csv("Datasets/ubic_geo_2018.csv")
+#State and City Data that uses the same codes as the data from 2018
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Wrangling and Merging
+
+
+```{r}
+#######################  ENIGH 2018 - Data for 2018 ############################
+
+#Adding Column for signaling 2018 (for dummy)
+enigh2018<-mutate(enigh2018,"year_"=2018)
+
+#Merging State Name
+enigh2018<-left_join(enigh2018,geo2018,by=c('ubica_geo' = 'ubic_geo'))
+
+#Selecting Variables for the model. (THIS MIGHT CHANGE ACCORDING TO FURTHER ANALYSIS)
+enigh2018<-select(enigh2018,folioviv,foliohog,est_socio,factor,ing_cor,gasto_mon,energia,transporte,publico,foraneo,combus,erogac_tot,year_,entidad,desc_ent,des_mun)
+
+#Droping secondary data for households (just main HH)
+enigh2018<- filter(enigh2018,foliohog==1)
+
+#Separating first month from Ingreso
+Ingreso_2018<-select(Ingreso_2018,folioviv,foliohog,mes_1) 
+Ingreso_2018<- filter(Ingreso_2018,foliohog==1) #drops secondary data
+Ingreso_2018 <- Ingreso_2018[order(Ingreso_2018$folioviv, Ingreso_2018$mes_1, decreasing=TRUE),] #sort higher month in the top
+Ingreso_2018 <- Ingreso_2018[!duplicated(Ingreso_2018$folioviv),]#Keeps Month or NA
+Ingreso_2018$mes_1 <- Ingreso_2018$mes_1+1 #Corrects for "last month data"
+
+#Merging months
+enigh2018<-left_join(enigh2018,Ingreso_2018,by="folioviv") #merging to get the month
+enigh2018<-select(enigh2018,-foliohog.x,-foliohog.y) #Re-clean
+enigh2018[is.na(enigh2018)] <- 8  # adding August as the month for NA's
+
+#Fuel price to all months.
+PRECIO2018<-select(PRECIO2018,X1,X2,X3,X4)
+colnames(PRECIO2018) <- c("desc_ent", "Precio", "year_","mes_1")
+enigh2018<-left_join(enigh2018,PRECIO2018,by=c('desc_ent'='desc_ent','year_'='year_','mes_1'='mes_1')) #merge prices.
+
+#merging inflation
+enigh2018<-left_join(enigh2018,Inflation,by=c('mes_1' = 'mes_1','year_' = 'year_')) #merge prices.
+summary(enigh2018)
+```
+
