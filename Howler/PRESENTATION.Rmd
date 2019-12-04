@@ -1,15 +1,17 @@
 ---
-title: "Final Project"
+title: "Predicting Transport Expenditures"
 author: "Alberto Rodriguez"
-date: "1/12/2019"
-output: pdf_document
+date: "4/12/2019"
+output:
+  beamer_presentation: default
+  ioslides_presentation: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r Package Requirements}
+```{r Package Requirements, include=FALSE}
 require (readr)
 require(readxl)
 require(tidyverse)
@@ -20,10 +22,19 @@ require(reprex)
 require(caret)
 require(recipes)
 ```
+## QUESTION
 
-## Getting Databases
+Can we use information on Household Characteristics, Income and Expenditure to predict their transport costs?
 
-```{r}
+## BUILDING A DATABASE
+
+- National Survey of Household Income and Expenses by the National Institute of Statistics and Geography of Mexico which includes information on more than 74,000 observations of households in the country
+- Inflation Reports from the National Bank
+- Gas Prices from the Energy Regulatory Commission
+
+(and merging it all together with geographic and month data)
+
+```{r Databases, include=FALSE}
 #Note that I'm taking away the spaces needed according to the specific values.
 
 enigh2018 <- read_csv("Data/conjunto_de_datos_concentradohogar_enigh_2018_ns.csv")
@@ -45,10 +56,7 @@ geo2018<- read_csv("Data/ubic_geo_2018.csv")
 
 ```
 
-## Wrangling and Merging
-
-
-```{r}
+```{r Merging, include=FALSE}
 #######################  ENIGH 2018  ############################
 ## Initial Merging (Pre-splitting)
 
@@ -87,10 +95,14 @@ Inflation<-mutate(Inflation,mes_1=month(Inflation$Fecha)) #Create variable of mo
 Inflation<-mutate(Inflation,year_=year(Inflation$Fecha)) #Create variable of month
 Inflation<-select(Inflation,SP30577,mes_1,year_)#select just monthly variation
 enigh2018_clean<-left_join(enigh2018_clean,Inflation,by=c('mes_1' = 'mes_1','year_' = 'year_')) #merge prices.
-
 ```
-Splitting the data.
-```{r}
+
+```{r Summary Data Wrangled, include=FALSE}
+summary(enigh2018_clean)
+```
+## Splitting the Data
+
+```{r Splitting the data, echo=TRUE}
 set.seed(123)
 index = createDataPartition(enigh2018_clean$transporte,p=.8,list=F) 
 train_data = enigh2018_clean[index,] # Use 80% of the data as training data 
@@ -98,11 +110,15 @@ test_data = enigh2018_clean[-index,] # holdout 20% as test data
 dim(train_data)
 dim(test_data)
 ```
-```{r}
+
+```{r include=FALSE}
 sum(is.na(train_data))
 summary(train_data)
 ```
-```{r}
+
+## Looking at Data
+
+```{r echo=FALSE}
 train_data %>% 
   select_if(is.numeric) %>% 
   gather(var,val) %>% 
@@ -111,7 +127,9 @@ train_data %>%
   facet_wrap(~var,scales="free",ncol=4)
 ```
 
-```{r}
+## Baked Goods!
+
+```{r include=FALSE}
 # First, turn the season variable into a categorical variable
 gen_cats = . %>% 
   mutate(soceco_status = as.factor(est_socio)) %>% 
@@ -125,32 +143,42 @@ rcp <-
   step_range(all_numeric()) %>%  # Normalize scale
   prep()
 
-
 # Apply the recipe to the training and test data
 train_data2 <- bake(rcp,train_data %>% gen_cats)
 test_data2 <- bake(rcp,test_data%>% gen_cats) # Need to transform the seasons data here as well. 
-
-sum(is.na(train_data2))
 ```
 
+```{r echo=FALSE}
+train_data2 %>% 
+  select(alimentos,combus,educa_espa,ing_cor,Precio,salud,SP30577,transporte,vivienda) %>% 
+  gather(var,val) %>% 
+  ggplot(aes(val,group=var)) +
+  geom_histogram(bins = 30) +
+  facet_wrap(~var,scales="free",ncol=3)
+```
 
-
-```{r}
+```{r eval=FALSE, include=FALSE}
+sum(is.na(train_data2))
+```
+ 
+Cross Validation 
+ 
+```{r echo=TRUE}
 set.seed(1004) # set a seed for replication purposes 
-
-folds <- createFolds(train_data2$transporte, k = 6) # Partition the data into 10 equal folds
-
+folds <- createFolds(train_data2$transporte, k = 6) # Partition the data into 6 equal folds
 sapply(folds,length)
 ```
 
-```{r}
+```{r include=FALSE}
 control_conditions <- 
   trainControl(method='cv', # K-fold cross validation
                index = folds # The indices for our folds (so they are always the same)
   )
 ```
 
-```{r}
+## Linear Model
+
+```{r include=FALSE, cache=TRUE}
 mod_lm <-
   train(transporte ~ .,          # Equation (outcome and everything else)
         data=train_data2, # Training data 
@@ -158,10 +186,15 @@ mod_lm <-
         metric = "RMSE",   # mean squared error
         trControl = control_conditions # Cross validation conditions
   )
+```
+
+```{r echo=TRUE}
 mod_lm
 ```
 
-```{r}
+## K-Regressors
+
+```{r include=FALSE, cache=TRUE}
 mod_knn <-
   train(transporte ~ .,           # Equation (outcome and everything else)
         data=train_data2,  # Training data 
@@ -169,10 +202,15 @@ mod_knn <-
         metric = "RMSE",   # mean squared error
         trControl = control_conditions # Cross validation conditions
   )
-mod_knn
 ```
 
-```{r}
+```{r echo=TRUE}
+plot(mod_knn)
+```
+
+## Random Forest
+
+```{r include=FALSE, cache=TRUE}
 mod_rf <-
   train(transporte ~ ., # Equation (outcome and everything else)
         data=train_data2, # Training data 
@@ -180,13 +218,14 @@ mod_rf <-
         metric = "RMSE",     # mean squared error
         trControl = control_conditions
   )
-mod_rf
 ```
-```{r}
+
+```{r echo=TRUE}
 plot(mod_rf)
 ```
 
-```{r}
+## Comparison
+```{r include=FALSE}
 mod_list <-
   list(
     lm = mod_lm,
@@ -198,16 +237,24 @@ mod_list <-
 resamples(mod_list)
 ```
 
-```{r}
+```{r echo=TRUE}
 dotplot(resamples(mod_list),metric = "RMSE")
 ```
 
-```{r}
+```{r echo=TRUE}
 dotplot(resamples(mod_list),metric = "Rsquared")
 ```
 
-```{r}
+## Test!
+(not good at all)
+```{r echo=TRUE}
 pred <- predict(mod_knn,newdata = test_data2)
 mse = sum(test_data2$transporte-pred^2)/nrow(test_data2)
 mse 
 ```
+
+## Next Steps
+
+- Change folds
+- Build Visualizations
+- Maybe Add Variables
