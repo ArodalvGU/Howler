@@ -207,7 +207,7 @@ dotplot(resamples(mod_list),metric = "Rsquared")
 ```
 
 ```{r}
-pred <- predict(mod_knn,newdata = test_data2)
+pred <- predict(mod_lm,newdata = test_data2)
 mse = sum(test_data2$transporte-pred^2)/nrow(test_data2)
 mse 
 ```
