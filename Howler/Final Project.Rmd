@@ -19,7 +19,6 @@ This brief report aims to create a model, using several Machine Learning Approac
 
 This model will be created using the National Survey of Household Income and Expenses by the National Institute of Statistics and Geography of Mexico which includes information on more than 74,000 observations of households in the country. This survey includes several variables at the household level, such as socioeconomic level, geographic data and expenditures directly associated with the price of gas such as public and private transportation.
 
-
 ## Background
 
 On March 18, 1938, the President of Mexico, Lázaro Cárdenas, issued the Petroleum Expropriation, which consisted of the legal appropriation of the oil operations of 17 foreign companies that controlled the industry. The main reason for the Expropriation was the constant refusal of the international oil companies to improve the wage and labor conditions of the employees of this industry. With this mandate, it was established that the Mexican State would have total control over the production and commercialization of oil in national territory. On June 7, 1938 - the Petróleos Mexicanos (Pemex) parastatal was founded, endowed with the necessary powers to carry out all oil exploration, exploitation, refining and commercialization work in our country (Garcia, 2009).
@@ -30,15 +29,14 @@ But by 2008, Cantarell’s production had dropped and both petroleum and electri
 
 To try to solve this problem, in 2013, the Congress passed a series of constitutional amendments promoted by former president Enrique Peña Nieto under the “Pact for Mexico” to open the industry to private and foreign investment for the first time in 75 years and aimed to overcome the legal obstacles that limited his progress, reconfiguring the iron-clad constitutional scheme that regulated the use of hydrocarbons since the 1940’s (Garcia Rivera, 2015). This included the liberalization of fuel prices that had been heavily subsidized and caused an increase of competition from international and Mexican private enterprises where more than 40 companies entered the fuel market. (Wood, 2018). 
 
-However, the open nature of the liberalization process provided an opening for a rise in gas prices in early 2017 called by the press as the gasolinazo. This major crisis happened because of poor planning, supply bottlenecks, and infrastructure challenges when the government began to remove subsidies from fuel prices and adjust the prices to the market which were at the time recorded as the lowest, making the negative effects of liberalization harsher. In particular, it provided a platform for the opposition and branded it as one of the worst problems created by the administration with a focus on how it hurt the population. (Nikolewski, 2017). On the presidential campaign of 2018 the now President Lopez Obrador ran on anti-corruption platform and publicly stated that the reform had been a mistake that deeply hurt the people of Mexico. This approach will shed some light on the question of how variables such as the price gas can predict energy expenditures as a way to test that information.
+However, the open nature of the liberalization process provided an opening for a rise in gas prices in early 2017 called by the press as the gasolinazo. This major crisis provided a platform for the opposition and branded it as one of the worst problems created by the administration with a focus on how it hurt the population. (Nikolewski, 2017). On the presidential campaign of 2018 the now President Lopez Obrador ran on anti-corruption platform and publicly stated that the reform had been a mistake that deeply hurt the people of Mexico. This approach will shed some light on the question of how variables such as the price gas can predict energy expenditures as a way to test that information.
 
 ## Literary Review 
 
 Even though the Mexican case is an interesting example to understand how fuel pricing subsidies and regulations affect societies, there are already several studies that have tried to model the effects of fuel prices on other different sectors. These studies range from analyzing the specific changes on the automotive industry, to helping understand the commodity nature of oil and fuel and its position as a good that considered as inelastic. 
 
 
-
-```{r Package Requirements}
+```{r Package Requirements, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 require (readr)
 require(readxl)
 require(tidyverse)
@@ -50,34 +48,32 @@ require(caret)
 require(recipes)
 ```
 
-## Getting Databases
+## Data
 
-```{r}
+
+
+```{r Importing Datasets, message=FALSE, warning=FALSE, include=FALSE, paged.print=TRUE}
 #Note that I'm taking away the spaces needed according to the specific values.
-
 enigh2018 <- read_csv("Data/conjunto_de_datos_concentradohogar_enigh_2018_ns.csv")
 #Household level survey for data on 2018 (after the price liberalization)
-
 Inflation <- read_delim("Data/Inflation.csv", 
     ";", escape_double = FALSE, trim_ws = TRUE, 
     skip = 11)
 #Inflation month values for 2016-2019
-
 PRECIO2018 <- read_delim("Data/PreciosPromedioMensuales.csv",";", escape_double = FALSE, col_names = FALSE, trim_ws = TRUE, skip = 2)
 #Monthly Gas prices for every state. 
-
 Ingreso_2018 <- read_csv("Data/Ingreso_2018.csv")
 #Income Datasubset that has the month every household was surveyed on 2016
-
 geo2018<- read_csv("Data/ubic_geo_2018.csv")
 #State and City Data that uses the same codes as the data from 2018
-
 ```
 
 ## Wrangling and Merging
 
 
-```{r}
+
+
+```{r Wrangling, message=FALSE, warning=FALSE, include=FALSE, paged.print=TRUE}
 #######################  ENIGH 2018  ############################
 ## Initial Merging (Pre-splitting)
 
@@ -118,8 +114,14 @@ Inflation<-select(Inflation,SP30577,mes_1,year_)#select just monthly variation
 enigh2018_clean<-left_join(enigh2018_clean,Inflation,by=c('mes_1' = 'mes_1','year_' = 'year_')) #merge prices.
 
 ```
-Splitting the data.
-```{r}
+
+## Analysis
+
+
+
+### Spliting & Examining the Data
+
+```{r Splitting the data, message=FALSE, warning=FALSE, include=FALSE}
 set.seed(123)
 index = createDataPartition(enigh2018_clean$transporte,p=.8,list=F) 
 train_data = enigh2018_clean[index,] # Use 80% of the data as training data 
@@ -127,11 +129,17 @@ test_data = enigh2018_clean[-index,] # holdout 20% as test data
 dim(train_data)
 dim(test_data)
 ```
-```{r}
+
+
+```{r Data Examination, echo=FALSE, message=FALSE, warning=FALSE}
 sum(is.na(train_data))
 summary(train_data)
 ```
-```{r}
+
+### Data Pre-processing
+
+
+```{r First Visualization, echo=FALSE, message=FALSE, warning=FALSE}
 train_data %>% 
   select_if(is.numeric) %>% 
   gather(var,val) %>% 
@@ -140,7 +148,8 @@ train_data %>%
   facet_wrap(~var,scales="free",ncol=4)
 ```
 
-```{r}
+
+```{r Recipe, message=FALSE, warning=FALSE, include=FALSE}
 # First, turn the season variable into a categorical variable
 gen_cats = . %>% 
   mutate(soceco_status = as.factor(est_socio)) %>% 
@@ -162,9 +171,10 @@ test_data2 <- bake(rcp,test_data%>% gen_cats) # Need to transform the seasons da
 sum(is.na(train_data2))
 ```
 
+### Cross Validation
 
 
-```{r}
+```{r Seeds, message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1004) # set a seed for replication purposes 
 
 folds <- createFolds(train_data2$transporte, k = 6) # Partition the data into 10 equal folds
@@ -172,14 +182,19 @@ folds <- createFolds(train_data2$transporte, k = 6) # Partition the data into 10
 sapply(folds,length)
 ```
 
-```{r}
+```{r ML Controls, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 control_conditions <- 
   trainControl(method='cv', # K-fold cross validation
                index = folds # The indices for our folds (so they are always the same)
   )
 ```
 
-```{r}
+
+### Linear Regression
+
+
+
+```{r Linear Regression, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 mod_lm <-
   train(transporte ~ .,          # Equation (outcome and everything else)
         data=train_data2, # Training data 
@@ -190,7 +205,11 @@ mod_lm <-
 mod_lm
 ```
 
-```{r}
+### K-Nearest Neighbors
+
+
+
+```{r K-Nearest Model, message=FALSE, warning=FALSE, include=FALSE, cache=TRUE}
 mod_knn <-
   train(transporte ~ .,           # Equation (outcome and everything else)
         data=train_data2,  # Training data 
@@ -201,7 +220,15 @@ mod_knn <-
 mod_knn
 ```
 
-```{r}
+```{r Plot k-Nearest, echo=FALSE, message=FALSE, warning=FALSE}
+plot(mod_knn)
+```
+
+### Random Forest
+
+
+
+```{r Random Forest, message=FALSE, warning=FALSE, include=FALSE, cache=TRUE}
 mod_rf <-
   train(transporte ~ ., # Equation (outcome and everything else)
         data=train_data2, # Training data 
@@ -211,11 +238,16 @@ mod_rf <-
   )
 mod_rf
 ```
-```{r}
+
+```{r Plot Random Forest, echo=FALSE, message=FALSE, warning=FALSE}
 plot(mod_rf)
 ```
 
-```{r}
+### Model Comparison
+
+
+
+```{r Model Comparison, message=FALSE, warning=FALSE, include=FALSE}
 mod_list <-
   list(
     lm = mod_lm,
@@ -227,16 +259,29 @@ mod_list <-
 resamples(mod_list)
 ```
 
-```{r}
+```{r Plot Comparison RMSE, echo=FALSE, message=FALSE, warning=FALSE}
 dotplot(resamples(mod_list),metric = "RMSE")
 ```
 
-```{r}
+```{r Plot Comparison R-Squared, echo=FALSE, message=FALSE, warning=FALSE}
 dotplot(resamples(mod_list),metric = "Rsquared")
 ```
+
+## Final Results
+
+### Predictive Accuracy of the Best Model
+
+
 
 ```{r}
 pred <- predict(mod_lm,newdata = test_data2)
 mse = sum(test_data2$transporte-pred^2)/nrow(test_data2)
 mse 
 ```
+
+## Discussion
+
+
+## Bibliography
+
+
