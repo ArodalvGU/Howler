@@ -9,6 +9,35 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Introduction
+
+Mexico went through a significant change in internal governance structure with the constitutional reform on the liberalization of gas prices in 2016.  Between February and November of 2017 this liberalization process was implemented across the country, making the price of gasoline to go from a single price nationwide that was determined by the government, to a fully variable pricing system based on both the national and international markets.
+
+For a nation that has deep ties to the national value of oil, this process was met with severe criticism hardly impacting the acting administration of Enrique Peña Nieto (2012-2018) and making it one of the main topics in the presidential campaign of 2018. In this election the liberalization of oil prices was touted as an extremely hurtful measure that would impact households across the country and ended up being on the slogans of the now President Andres Manuel López Obrador.
+
+This brief report aims to create a model, using several Machine Learning Approaches that might predict how much do households spend in energy related expenditures as a way to provide better information on the effects of energy policies, focusing on the effect of gas prices thata arose from the enregy reform. Such a model would try to provide policy makers a more specific measurements of the impact of their policies. 
+
+This model will be created using the National Survey of Household Income and Expenses by the National Institute of Statistics and Geography of Mexico which includes information on more than 74,000 observations of households in the country. This survey includes several variables at the household level, such as socioeconomic level, geographic data and expenditures directly associated with the price of gas such as public and private transportation.
+
+
+## Background
+
+On March 18, 1938, the President of Mexico, Lázaro Cárdenas, issued the Petroleum Expropriation, which consisted of the legal appropriation of the oil operations of 17 foreign companies that controlled the industry. The main reason for the Expropriation was the constant refusal of the international oil companies to improve the wage and labor conditions of the employees of this industry. With this mandate, it was established that the Mexican State would have total control over the production and commercialization of oil in national territory. On June 7, 1938 - the Petróleos Mexicanos (Pemex) parastatal was founded, endowed with the necessary powers to carry out all oil exploration, exploitation, refining and commercialization work in our country (Garcia, 2009).
+
+Since then, oil and fuel have been deeply intertwined with development policies in Mexico. In the 1970’s oil production was touted by the government as the solution for the country’s development given the price surge of the commodity worldwide, and after the second largest oil field in the world called Cantarell was discovered by PEMEX, the political link to oil prices became stronger with almost a third of the government’s budget relying on oil revenues (Wood, 2018). 
+
+But by 2008, Cantarell’s production had dropped and both petroleum and electricity national companies (PEMEX and CFE) became inefficient enterprises with high debt and dated technology. Despite investing more in oil and natural gas exploration and extraction, oil production went from 3.4 million barrels per day in 2004, to 2.5 million barrels per day in 2013 (Gobierno de la República México, 2013). On top of this, according to estimation, the subsidies to fuel prices would amount for more than 650 billion pesos from 2013 to 2016 potentially crippling the government budget. (Gutierrez Rodriguez, 2017)
+
+To try to solve this problem, in 2013, the Congress passed a series of constitutional amendments promoted by former president Enrique Peña Nieto under the “Pact for Mexico” to open the industry to private and foreign investment for the first time in 75 years and aimed to overcome the legal obstacles that limited his progress, reconfiguring the iron-clad constitutional scheme that regulated the use of hydrocarbons since the 1940’s (Garcia Rivera, 2015). This included the liberalization of fuel prices that had been heavily subsidized and caused an increase of competition from international and Mexican private enterprises where more than 40 companies entered the fuel market. (Wood, 2018). 
+
+However, the open nature of the liberalization process provided an opening for a rise in gas prices in early 2017 called by the press as the gasolinazo. This major crisis happened because of poor planning, supply bottlenecks, and infrastructure challenges when the government began to remove subsidies from fuel prices and adjust the prices to the market which were at the time recorded as the lowest, making the negative effects of liberalization harsher. In particular, it provided a platform for the opposition and branded it as one of the worst problems created by the administration with a focus on how it hurt the population. (Nikolewski, 2017). On the presidential campaign of 2018 the now President Lopez Obrador ran on anti-corruption platform and publicly stated that the reform had been a mistake that deeply hurt the people of Mexico. This approach will shed some light on the question of how variables such as the price gas can predict energy expenditures as a way to test that information.
+
+## Literary Review 
+
+Even though the Mexican case is an interesting example to understand how fuel pricing subsidies and regulations affect societies, there are already several studies that have tried to model the effects of fuel prices on other different sectors. These studies range from analyzing the specific changes on the automotive industry, to helping understand the commodity nature of oil and fuel and its position as a good that considered as inelastic. 
+
+
+
 ```{r Package Requirements}
 require (readr)
 require(readxl)
